@@ -452,9 +452,11 @@
   }
 
   function connect() {
-    var v = ($("#url-in").value || "").trim();
+    var raw = $("#url-in").value || "";
     var err = $("#s-err");
-    if (v.indexOf("https://script.google.com/") !== 0) { err.textContent = "הכתובת צריכה להתחיל ב-https://script.google.com/"; return; }
+    var m = raw.match(/https:\/\/script\.google\.com\/macros(?:\/u\/\d+)?\/s\/[A-Za-z0-9_\-]+\/exec/);
+    if (!m) { err.textContent = "לא מצאתי כתובת של גוגל בטקסט. מה שהודבק מתחיל ב: " + raw.trim().slice(0, 40); return; }
+    var v = m[0];
     err.textContent = "מתחבר…";
     apiUrl = v;
     api({ action: "list" }).then(function (j) {
