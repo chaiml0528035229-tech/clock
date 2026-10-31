@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>התקנה - נוכחות ושכר</title>
+<style>
+ body{font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:#f3f6fa;color:#1b2733;margin:0;padding:16px;line-height:1.6}
+ .w{max-width:720px;margin:0 auto}
+ h1{color:#1f4e78;font-size:24px} h2{color:#1f4e78;font-size:18px;margin:0 0 6px}
+ .s{background:#fff;border:1px solid #d9e1ea;border-radius:14px;padding:14px;margin-bottom:12px}
+ .n{display:inline-block;background:#1f4e78;color:#fff;border-radius:50%;width:26px;height:26px;text-align:center;line-height:26px;margin-left:8px}
+ button{background:#1f4e78;color:#fff;border:0;border-radius:12px;padding:14px 18px;font-size:18px;width:100%;margin:6px 0}
+ pre{direction:ltr;text-align:left;background:#0f1b27;color:#d6e4f0;border-radius:10px;padding:10px;max-height:160px;overflow:auto;font-size:12px}
+ .ok{color:#2e8b57;font-weight:700;min-height:24px}
+ b.k{background:#eef4fb;border-radius:6px;padding:1px 6px}
+</style></head><body><div class="w">
+<h1>התקנת נוכחות ושכר</h1>
+<p>ההתקנה נעשית פעם אחת, <b>במחשב</b>, ולוקחת כ-10 דקות. אחר כך משתמשים רק בטלפון.</p>
+
+<div class="s"><h2><span class="n">1</span>העתק את הקוד</h2>
+<p>לחץ על הכפתור. הקוד יועתק. אין צורך לקרוא אותו.</p>
+<button id="cp">העתק את הקוד</button><div class="ok" id="ok"></div>
+<pre id="code">// נוכחות ושכר - קוד השרת (Google Apps Script)
+// הקוד יוצר טבלה בגוגל שיטס בחשבון שלך ושומר בה את הכניסות והיציאות.
+
+var DATA = &#x27;נתונים&#x27;;
+var SETTINGS = &#x27;הגדרות&#x27;;
+var SUMMARY = &#x27;סיכום&#x27;;
+var HMONTHS = [&#x27;ינואר&#x27;,&#x27;פברואר&#x27;,&#x27;מרץ&#x27;,&#x27;אפריל&#x27;,&#x27;מאי&#x27;,&#x27;יוני&#x27;,&#x27;יולי&#x27;,&#x27;אוגוסט&#x27;,&#x27;ספטמבר&#x27;,&#x27;אוקטובר&#x27;,&#x27;נובמבר&#x27;,&#x27;דצמבר&#x27;];
+var WDAYS = [&#x27;ראשון&#x27;,&#x27;שני&#x27;,&#x27;שלישי&#x27;,&#x27;רביעי&#x27;,&#x27;חמישי&#x27;,&#x27;שישי&#x27;,&#x27;שבת&#x27;];
+var MONEY = &#x27;#,##0.00 &quot;₪&quot;&#x27;;
+
+/* ---------- logic (pure) ---------- */
+function minute_(ms) { return ms == null || ms === &#x27;&#x27; ? null : Math.round(Number(ms) / 60000) * 60000; }
+
+function dayName_(key) {
+  var p = key.split(&#x27;-&#x27;);
+  return WDAYS[new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay()];
+}
+
+// records: [{date, heb, in, out, paid}] ; days: [{date, heb, shifts:[{in,out}], paid}]
+function mergeDays_(records, days) {
+  var touched = {};
+  days.forEach(function (d) { touched[d.date] = true; });
+  var out = records.filter(function (r) { return !touched[r.date]; });
+  days.forEach(function (d) {
+    (d.shifts || []).forEach(function (s) {
+      if (s.in == null) return;
+      out.push({ date: d.date, heb: d.heb || &#x27;&#x27;, in: minute_(s.in), out: minute_(s.out), paid: !!d.paid });
+    });
+  });
+  out.sort(function (a, b) { return a.date &lt; b.date ? -1 : a.date &gt; b.date ? 1 : a.in - b.in; });
+  return out;
+}
+
+function monthsOf_(records) {
+  var seen = {}, list = [];
+  records.forEach(function (r) { var m = r.date.slice(0, 7); if (!seen[m]) { seen[m] = true; list.push(m); } });
+  list.sort();
+  return list;
+}
+
+function monthName_(m) { return HMONTHS[Number(m.slice(5, 7)) - 1] + &#x27; &#x27; + m.slice(0, 4); }
+
+/* ---------- spreadsheet ---------- */
+function getSS_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(&#x27;SSID&#x27;);
+  if (id) { try { return SpreadsheetApp.openById(id); } catch (e) {} }
+  var ss = SpreadsheetApp.create(&#x27;נוכחות ושכר&#x27;);
+  ss.setSpreadsheetTimeZone(&#x27;Asia/Jerusalem&#x27;);
+  props.setProperty(&#x27;SSID&#x27;, ss.getId());
+
+  var data = ss.getSheets()[0];
+  data.setName(DATA);
+  data.setRightToLeft(true);
+  var head = [&#x27;תאריך&#x27;, &#x27;תאריך עברי&#x27;, &#x27;יום&#x27;, &#x27;כניסה&#x27;, &#x27;יציאה&#x27;, &#x27;זמן עבודה&#x27;, &#x27;שכר&#x27;, &#x27;שולם?&#x27;, &#x27;חודש&#x27;];
+  data.getRange(1, 1, 1, 9).setValues([head]).setFontWeight(&#x27;bold&#x27;).setBackground(&#x27;#1f4e78&#x27;).setFontColor(&#x27;#ffffff&#x27;).setHorizontalAlignment(&#x27;center&#x27;);
+  data.getRange(&#x27;A:A&#x27;).setNumberFormat(&#x27;@&#x27;);
+  data.getRange(&#x27;D:E&#x27;).setNumberFormat(&#x27;dd/MM hh:mm&#x27;);
+  data.getRange(&#x27;F:F&#x27;).setNumberFormat(&#x27;[h]:mm&#x27;);
+  data.getRange(&#x27;G:G&#x27;).setNumberFormat(MONEY);
+  data.setFrozenRows(1);
+  data.setColumnWidths(1, 9, 110);
+  data.setColumnWidth(2, 150);
+
+  var st = ss.insertSheet(SETTINGS);
+  st.setRightToLeft(true);
+  st.getRange(&#x27;A1:B1&#x27;).setValues([[&#x27;שכר לשעה&#x27;, 45]]);
+  st.getRange(&#x27;A1&#x27;).setFontWeight(&#x27;bold&#x27;);
+  st.getRange(&#x27;B1&#x27;).setBackground(&#x27;#fff2cc&#x27;).setFontWeight(&#x27;bold&#x27;);
+  st.getRange(&#x27;A2&#x27;).setValue(&#x27;אפשר לשנות את המספר הצהוב, והשכר מתעדכן בכל הטבלאות.&#x27;);
+  st.setColumnWidth(1, 160);
+
+  var sm = ss.insertSheet(SUMMARY, 0);
+  sm.setRightToLeft(true);
+  return ss;
+}
+
+function readRecords_(ss) {
+  var sh = ss.getSheetByName(DATA);
+  var last = sh.getLastRow();
+  if (last &lt; 2) return [];
+  var vals = sh.getRange(2, 1, last - 1, 8).getValues();
+  var out = [];
+  vals.forEach(function (v) {
+    if (!v[0]) return;
+    var date = v[0] instanceof Date ? Utilities.formatDate(v[0], &#x27;Asia/Jerusalem&#x27;, &#x27;yyyy-MM-dd&#x27;) : String(v[0]);
+    out.push({
+      date: date, heb: String(v[1] || &#x27;&#x27;),
+      in: v[3] instanceof Date ? minute_(v[3].getTime()) : null,
+      out: v[4] instanceof Date ? minute_(v[4].getTime()) : null,
+      paid: String(v[7]) === &#x27;שולם&#x27;
+    });
+  });
+  return out.filter(function (r) { return r.in != null; });
+}
+
+function writeRecords_(ss, records) {
+  var sh = ss.getSheetByName(DATA);
+  var last = sh.getLastRow();
+  if (last &gt; 1) sh.getRange(2, 1, last - 1, 9).clearContent();
+  if (!records.length) return;
+  var rows = records.map(function (r, i) {
+    var n = i + 2;
+    return [
+      r.date, r.heb, dayName_(r.date), new Date(r.in), r.out != null ? new Date(r.out) : &#x27;&#x27;,
+      &#x27;=IF(AND(ISNUMBER(D&#x27; + n + &#x27;),ISNUMBER(E&#x27; + n + &#x27;)),E&#x27; + n + &#x27;-D&#x27; + n + &#x27;,&quot;&quot;)&#x27;,
+      &#x27;=IF(F&#x27; + n + &#x27;=&quot;&quot;,&quot;&quot;,ROUND(ROUND(F&#x27; + n + &#x27;*1440,0)*\&#x27;&#x27; + SETTINGS + &#x27;\&#x27;!$B$1/60,2))&#x27;,
+      r.paid ? &#x27;שולם&#x27; : &#x27;&#x27;,
+      &#x27;=LEFT(A&#x27; + n + &#x27;,7)&#x27;
+    ];
+  });
+  var rng = sh.getRange(2, 1, rows.length, 9);
+  rng.setNumberFormat(&#x27;General&#x27;);
+  sh.getRange(2, 1, rows.length, 1).setNumberFormat(&#x27;@&#x27;);
+  rng.setValues(rows);
+  sh.getRange(2, 4, rows.length, 2).setNumberFormat(&#x27;dd/MM hh:mm&#x27;);
+  sh.getRange(2, 6, rows.length, 1).setNumberFormat(&#x27;[h]:mm&#x27;);
+  sh.getRange(2, 7, rows.length, 1).setNumberFormat(MONEY);
+  sh.getRange(2, 1, rows.length, 9).setHorizontalAlignment(&#x27;center&#x27;);
+}
+
+function ref_(col) { return &quot;&#x27;&quot; + DATA + &quot;&#x27;!&quot; + col + &#x27;:&#x27; + col; }
+
+function ensureTabs_(ss, months) {
+  var want = {};
+  months.forEach(function (m) { want[monthName_(m)] = m; });
+  var pattern = new RegExp(&#x27;^(&#x27; + HMONTHS.join(&#x27;|&#x27;) + &#x27;) \\d{4}$&#x27;);
+  ss.getSheets().forEach(function (sh) {
+    if (pattern.test(sh.getName()) &amp;&amp; !want[sh.getName()]) ss.deleteSheet(sh);
+  });
+  months.forEach(function (m, idx) {
+    var name = monthName_(m);
+    if (ss.getSheetByName(name)) return;
+    var sh = ss.insertSheet(name, 1 + idx);
+    sh.setRightToLeft(true);
+    sh.getRange(&#x27;A1&#x27;).setValue(name).setFontWeight(&#x27;bold&#x27;).setFontSize(14);
+    var labels = [[&#x27;סה״כ זמן&#x27;], [&#x27;סה״כ לתשלום&#x27;], [&#x27;כבר שולם&#x27;], [&#x27;נשאר לתשלום&#x27;]];
+    sh.getRange(&#x27;A2:A5&#x27;).setValues(labels).setFontWeight(&#x27;bold&#x27;);
+    sh.getRange(&#x27;B2&#x27;).setFormula(&#x27;=SUMIFS(&#x27; + ref_(&#x27;F&#x27;) + &#x27;,&#x27; + ref_(&#x27;I&#x27;) + &#x27;,&quot;&#x27; + m + &#x27;&quot;)&#x27;).setNumberFormat(&#x27;[h]:mm&#x27;);
+    sh.getRange(&#x27;B3&#x27;).setFormula(&#x27;=SUMIFS(&#x27; + ref_(&#x27;G&#x27;) + &#x27;,&#x27; + ref_(&#x27;I&#x27;) + &#x27;,&quot;&#x27; + m + &#x27;&quot;)&#x27;).setNumberFormat(MONEY);
+    sh.getRange(&#x27;B4&#x27;).setFormula(&#x27;=SUMIFS(&#x27; + ref_(&#x27;G&#x27;) + &#x27;,&#x27; + ref_(&#x27;I&#x27;) + &#x27;,&quot;&#x27; + m + &#x27;&quot;,&#x27; + ref_(&#x27;H&#x27;) + &#x27;,&quot;שולם&quot;)&#x27;).setNumberFormat(MONEY);
+    sh.getRange(&#x27;B5&#x27;).setFormula(&#x27;=B3-B4&#x27;).setNumberFormat(MONEY);
+    sh.getRange(&#x27;B2:B5&#x27;).setBackground(&#x27;#ddebf7&#x27;).setFontWeight(&#x27;bold&#x27;).setHorizontalAlignment(&#x27;center&#x27;);
+    var heads = [&#x27;תאריך&#x27;, &#x27;תאריך עברי&#x27;, &#x27;יום&#x27;, &#x27;כניסה&#x27;, &#x27;יציאה&#x27;, &#x27;זמן עבודה&#x27;, &#x27;שכר&#x27;, &#x27;שולם?&#x27;];
+    sh.getRange(7, 1, 1, 8).setValues([heads]).setFontWeight(&#x27;bold&#x27;).setBackground(&#x27;#1f4e78&#x27;).setFontColor(&#x27;#ffffff&#x27;).setHorizontalAlignment(&#x27;center&#x27;);
+    sh.getRange(&#x27;A8&#x27;).setFormula(&#x27;=IFERROR(FILTER(\&#x27;&#x27; + DATA + &#x27;\&#x27;!A2:H,\&#x27;&#x27; + DATA + &#x27;\&#x27;!I2:I=&quot;&#x27; + m + &#x27;&quot;),&quot;&quot;)&#x27;);
+    sh.getRange(&#x27;D8:E&#x27;).setNumberFormat(&#x27;hh:mm&#x27;);
+    sh.getRange(&#x27;F8:F&#x27;).setNumberFormat(&#x27;[h]:mm&#x27;);
+    sh.getRange(&#x27;G8:G&#x27;).setNumberFormat(MONEY);
+    sh.getRange(&#x27;A8:H&#x27;).setHorizontalAlignment(&#x27;center&#x27;);
+    sh.setColumnWidths(1, 8, 105);
+    sh.setColumnWidth(2, 150);
+    sh.setColumnWidth(1, 120);
+  });
+}
+
+function buildSummary_(ss, months) {
+  var sh = ss.getSheetByName(SUMMARY);
+  sh.clear();
+  sh.getRange(&#x27;A1:E1&#x27;).setValues([[&#x27;חודש&#x27;, &#x27;סה״כ זמן&#x27;, &#x27;סה״כ לתשלום&#x27;, &#x27;שולם&#x27;, &#x27;נשאר לתשלום&#x27;]]).setFontWeight(&#x27;bold&#x27;).setBackground(&#x27;#1f4e78&#x27;).setFontColor(&#x27;#ffffff&#x27;).setHorizontalAlignment(&#x27;center&#x27;);
+  if (!months.length) return;
+  var rows = months.map(function (m, i) {
+    var n = i + 2;
+    return [
+      monthName_(m),
+      &#x27;=SUMIFS(&#x27; + ref_(&#x27;F&#x27;) + &#x27;,&#x27; + ref_(&#x27;I&#x27;) + &#x27;,&quot;&#x27; + m + &#x27;&quot;)&#x27;,
+      &#x27;=SUMIFS(&#x27; + ref_(&#x27;G&#x27;) + &#x27;,&#x27; + ref_(&#x27;I&#x27;) + &#x27;,&quot;&#x27; + m + &#x27;&quot;)&#x27;,
+      &#x27;=SUMIFS(&#x27; + ref_(&#x27;G&#x27;) + &#x27;,&#x27; + ref_(&#x27;I&#x27;) + &#x27;,&quot;&#x27; + m + &#x27;&quot;,&#x27; + ref_(&#x27;H&#x27;) + &#x27;,&quot;שולם&quot;)&#x27;,
+      &#x27;=C&#x27; + n + &#x27;-D&#x27; + n
+    ];
+  });
+  sh.getRange(2, 1, rows.length, 5).setValues(rows);
+  var t = rows.length + 2;
+  sh.getRange(t, 1, 1, 5).setValues([[&#x27;סה״כ&#x27;, &#x27;=SUM(B2:B&#x27; + (t - 1) + &#x27;)&#x27;, &#x27;=SUM(C2:C&#x27; + (t - 1) + &#x27;)&#x27;, &#x27;=SUM(D2:D&#x27; + (t - 1) + &#x27;)&#x27;, &#x27;=SUM(E2:E&#x27; + (t - 1) + &#x27;)&#x27;]]).setFontWeight(&#x27;bold&#x27;).setBackground(&#x27;#ddebf7&#x27;);
+  sh.getRange(2, 2, rows.length + 1, 1).setNumberFormat(&#x27;[h]:mm&#x27;);
+  sh.getRange(2, 3, rows.length + 1, 3).setNumberFormat(MONEY);
+  sh.getRange(2, 1, rows.length + 1, 5).setHorizontalAlignment(&#x27;center&#x27;);
+  sh.setColumnWidths(1, 5, 120);
+}
+
+function state_(ss, records) {
+  var rate = Number(ss.getSheetByName(SETTINGS).getRange(&#x27;B1&#x27;).getValue()) || 45;
+  return { ok: true, rate: rate, url: ss.getUrl(), shifts: records };
+}
+
+function handle_(req) {
+  var ss = getSS_();
+  if (req.action === &#x27;setRate&#x27;) {
+    var v = Number(req.rate);
+    if (!(v &gt; 0)) throw new Error(&#x27;bad rate&#x27;);
+    ss.getSheetByName(SETTINGS).getRange(&#x27;B1&#x27;).setValue(v);
+    return state_(ss, readRecords_(ss));
+  }
+  var records = readRecords_(ss);
+  if (req.action === &#x27;saveDays&#x27;) {
+    records = mergeDays_(records, req.days || []);
+    writeRecords_(ss, records);
+    var months = monthsOf_(records);
+    ensureTabs_(ss, months);
+    buildSummary_(ss, months);
+  }
+  return state_(ss, records);
+}
+
+/* ---------- web endpoints ---------- */
+function doPost(e) {
+  var out;
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(25000);
+    out = handle_(JSON.parse(e.postData.contents));
+  } catch (err) {
+    out = { ok: false, error: String(err) };
+  } finally {
+    try { lock.releaseLock(); } catch (x) {}
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet() {
+  return ContentService.createTextOutput(&#x27;נוכחות ושכר: השרת עובד&#x27;);
+}
+
+// מריצים פעם אחת ידנית כדי לאשר הרשאות וליצור את הטבלה
+function setup() {
+  var ss = getSS_();
+  Logger.log(&#x27;הטבלה נוצרה: &#x27; + ss.getUrl());
+}
+</pre></div>
+
+<div class="s"><h2><span class="n">2</span>פתח את גוגל סקריפט</h2>
+<p>היכנס לכתובת <b class="k">script.google.com</b> עם החשבון <b class="k">chaiml0528035229@gmail.com</b>. לחץ על <b class="k">פרויקט חדש</b> (New project).</p></div>
+
+<div class="s"><h2><span class="n">3</span>הדבק את הקוד</h2>
+<p>במסך שנפתח יש טקסט קצר באמצע. לחץ בתוכו עם הכפתור הימני של העכבר, ובתפריט שנפתח בחר <b class="k">בחר הכול</b> (Select all). אחר כך לחץ על המקש <b class="k">Delete</b> במקלדת, כדי למחוק את הטקסט. עכשיו לחץ שוב עם הכפתור הימני בתוך המסך הריק ובחר <b class="k">הדבק</b> (Paste). הקוד יופיע. בסוף לחץ על סמל הדיסקט (שמירה) למעלה.</p></div>
+
+<div class="s"><h2><span class="n">4</span>הפעל פעם אחת ואשר הרשאה</h2>
+<p>למעלה יש רשימה שנראית כמו <b class="k">doGet</b> או <b class="k">setup</b>. בחר בה את <b class="k">setup</b> ולחץ על <b class="k">הפעלה</b> (Run). גוגל תבקש הרשאה: לחץ <b class="k">בדיקת הרשאות</b>, בחר את החשבון שלך, ואם כתוב שהאפליקציה לא מאומתת לחץ <b class="k">מתקדם</b> ואז <b class="k">עבור אל ... (לא בטוח)</b>, ובסוף <b class="k">אפשר</b>. זה תקין, כי בנית את זה בעצמך. הוא ייצור טבלה חדשה בשם "נוכחות ושכר" בגוגל דרייב שלך.</p></div>
+
+<div class="s"><h2><span class="n">5</span>פרסם כאפליקציית אינטרנט</h2>
+<p>למעלה מימין לחץ <b class="k">פריסה</b> (Deploy) ואז <b class="k">פריסה חדשה</b> (New deployment). ליד "בחר סוג" לחץ על גלגל השיניים ובחר <b class="k">אפליקציית אינטרנט</b> (Web app). בשדה "הפעלה בתור" השאר <b class="k">אני</b>. בשדה "למי יש גישה" בחר <b class="k">כל אחד</b> (Anyone). לחץ <b class="k">פריסה</b>.</p></div>
+
+<div class="s"><h2><span class="n">6</span>העתק את הכתובת</h2>
+<p>בסוף תופיע <b class="k">כתובת אפליקציית אינטרנט</b>, כתובת ארוכה שמתחילה ב-https://script.google.com/macros/s/. לחץ על <b class="k">העתקה</b> לידה. שלח אותה לעצמך בווטסאפ.</p>
+<p><b>אל תשלח אותה לאף אחד אחר. זו הכתובת הסודית של הטבלה שלך.</b></p></div>
+
+<div class="s"><h2><span class="n">7</span>בטלפון</h2>
+<p>פתח באתר את האפליקציה, הדבק את הכתובת שהעתקת ולחץ <b class="k">התחבר</b>. אחר כך הוסף למסך הבית: באייפון בכפתור השיתוף (ריבוע עם חץ) ואז "הוסף למסך הבית", ובאנדרואיד בשלוש הנקודות ואז "הוסף למסך הבית".</p></div>
+</div>
+<script>
+ document.getElementById("cp").onclick=function(){
+  var t=document.getElementById("code").textContent, ok=document.getElementById("ok");
+  function done(){ok.textContent="הקוד הועתק ✓"}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fb)}else fb();
+  function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");done()}catch(e){ok.textContent="לא הצלחתי להעתיק"}a.remove()}
+ };
+</script></body></html>

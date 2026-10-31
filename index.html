@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4e78">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="נוכחות">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>נוכחות ושכר</title>
+<style>
+  :root { color-scheme: light; --blue:#1f4e78; --green:#2e8b57; --red:#c0392b; --bg:#f3f6fa; --card:#fff; --line:#d9e1ea; --muted:#6b7a8a; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color:#1b2733; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  #app { max-width: 560px; margin: 0 auto; padding: 12px 12px 90px; }
+  .top { display:flex; align-items:center; justify-content:space-between; margin: 6px 0 4px; }
+  .top h1 { font-size: 22px; margin:0; color:var(--blue); }
+  .sync { font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .icon-btn { border:1px solid var(--line); background:#fff; border-radius:12px; padding:8px 12px; font-size:15px; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tab { flex:1; padding:12px; border-radius:12px; border:1px solid var(--line); background:#fff; font-size:16px; font-weight:600; color:var(--muted); }
+  .tab.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px; }
+  .status { text-align:center; margin-bottom:12px; }
+  .status .now { font-size:34px; font-weight:700; letter-spacing:1px; }
+  .status .sub { color:var(--muted); font-size:15px; margin-top:2px; }
+  .status .state { margin-top:8px; font-size:18px; font-weight:600; }
+  .big { display:flex; gap:10px; }
+  .big button { flex:1; height:84px; border:0; border-radius:18px; font-size:26px; font-weight:700; color:#fff; }
+  .big .in { background:var(--green); }
+  .big .out { background:var(--red); }
+  button:disabled { opacity:.3; }
+  .monthnav { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+  .monthnav .nm { font-size:20px; font-weight:700; text-align:center; flex:1; }
+  .monthnav button { border:1px solid var(--line); background:#fff; border-radius:12px; padding:10px 12px; font-size:14px; }
+  .stats { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .stat { background:#eef4fb; border-radius:12px; padding:10px; text-align:center; }
+  .stat .l { font-size:13px; color:var(--muted); }
+  .stat .v { font-size:20px; font-weight:700; margin-top:2px; }
+  .stat.rem { background:#fdecea; } .stat.rem .v { color:var(--red); }
+  .stat.paid { background:#e6f5ec; } .stat.paid .v { color:var(--green); }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .day { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:8px; }
+  .day.paidday { background:#eaf7ef; border-color:#bfe3cc; }
+  .day .d1 { font-weight:700; font-size:16px; }
+  .day .d2 { color:var(--muted); font-size:15px; margin-top:3px; }
+  .day .pay { font-weight:700; font-size:18px; }
+  .day .acts { display:flex; gap:8px; margin-top:10px; }
+  .btn { border:1px solid var(--line); background:#fff; border-radius:10px; padding:9px 12px; font-size:15px; flex:1; }
+  .btn.pri { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .btn.ok { background:var(--green); color:#fff; border-color:var(--green); }
+  .btn.warn { background:#fff; color:var(--red); border-color:var(--red); }
+  .tools { display:flex; flex-direction:column; gap:8px; margin: 12px 0; }
+  .empty { text-align:center; color:var(--muted); padding:22px 6px; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th { background:var(--blue); color:#fff; padding:8px 4px; font-size:13px; }
+  td { padding:10px 4px; text-align:center; border-bottom:1px solid var(--line); }
+  tr.clickable td:first-child { color:var(--blue); font-weight:700; text-decoration:underline; }
+  tr.total td { font-weight:700; background:#eef4fb; }
+  .modalbg { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; z-index:10; }
+  .modal { background:#fff; width:100%; max-width:560px; border-radius:20px 20px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); max-height:90vh; overflow:auto; }
+  .modal h2 { margin:0 0 12px; font-size:19px; }
+  .modal label { display:block; font-size:14px; color:var(--muted); margin:8px 0 4px; }
+  .modal input, .setup textarea { width:100%; font-size:20px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  .setup textarea { font-size:16px; min-height:90px; direction:ltr; }
+  .shiftbox { border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin:8px 0; }
+  .shiftbox .two { display:flex; gap:10px; }
+  .shiftbox .two > div { flex:1; }
+  .err { color:var(--red); font-size:14px; margin-top:8px; min-height:18px; }
+  .toast { position:fixed; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); background:#1b2733; color:#fff; padding:12px 18px; border-radius:14px; font-size:15px; z-index:20; max-width:90%; text-align:center; }
+  .note { color:var(--muted); font-size:13px; text-align:center; margin-top:6px; }
+</style>
+</head>
+<body>
+<div id="app"><div class="empty">טוען…</div></div>
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+  var DAYS = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+  var $ = function (s) { return document.querySelector(s); };
+  var pad = function (n) { return String(n).padStart(2, "0"); };
+  var keyOf = function (d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+  var parseKey = function (k) { var p = k.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+  var fmtDate = function (k) { var d = parseKey(k); return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(); };
+  var dayName = function (k) { return DAYS[parseKey(k).getDay()]; };
+  var hm = function (ts) { var d = new Date(ts); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+  var dur = function (min) { return Math.floor(min / 60) + ":" + pad(min % 60); };
+  var money = function (n) { return n.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₪"; };
+  var r2 = function (n) { return Math.round(n * 100) / 100; };
+  var toTs = function (key, t) { var d = parseKey(key); var p = t.split(":").map(Number); d.setHours(p[0], p[1], 0, 0); return d.getTime(); };
+  var minuteNow = function () { return Math.floor(Date.now() / 60000) * 60000; };
+
+  function gem(n) {
+    var H = [[400,"ת"],[300,"ש"],[200,"ר"],[100,"ק"],[90,"צ"],[80,"פ"],[70,"ע"],[60,"ס"],[50,"נ"],[40,"מ"],[30,"ל"],[20,"כ"],[10,"י"],[9,"ט"],[8,"ח"],[7,"ז"],[6,"ו"],[5,"ה"],[4,"ד"],[3,"ג"],[2,"ב"],[1,"א"]];
+    var out = "";
+    H.forEach(function (x) { if (x[0] >= 100) while (n >= x[0]) { out += x[1]; n -= x[0]; } });
+    if (n === 15) out += "טו"; else if (n === 16) out += "טז";
+    else H.forEach(function (x) { if (x[0] < 100) while (n >= x[0]) { out += x[1]; n -= x[0]; } });
+    if (out.length === 1) return out + "׳";
+    return out.slice(0, -1) + "״" + out.slice(-1);
+  }
+  var hebFmt = null;
+  try { hebFmt = new Intl.DateTimeFormat("he-u-ca-hebrew", { day: "numeric", month: "long", year: "numeric" }); } catch (e) {}
+  function heb(k) {
+    if (!hebFmt) return "";
+    try {
+      var g = {};
+      hebFmt.formatToParts(parseKey(k)).forEach(function (p) { g[p.type] = p.value; });
+      return gem(Number(g.day)) + " " + g.month + " " + gem(Number(g.year) % 1000);
+    } catch (e) { return ""; }
+  }
+
+  /* ---------- state + storage ---------- */
+  var URLKEY = "tc_url", CACHE = "tc_cache";
+  var apiUrl = "";
+  try { apiUrl = localStorage.getItem(URLKEY) || ""; } catch (e) {}
+  var docs = new Map();      // "d_YYYY-MM-DD" -> {date, shifts, paid}
+  var rate = 45, sheetUrl = "";
+  var pending = [];          // day payloads waiting to be sent
+  var pendingRate = null;
+  var online = true, syncing = false, ready = false, busy = false;
+  var view = "month", today = new Date(), curY = today.getFullYear(), curM = today.getMonth() + 1;
+  var editCtx = null, pendingConfirm = null, lastSync = 0;
+
+  function saveCache() {
+    try {
+      var o = { rate: rate, sheetUrl: sheetUrl, pending: pending, pendingRate: pendingRate, days: [] };
+      docs.forEach(function (d) { o.days.push(d); });
+      localStorage.setItem(CACHE, JSON.stringify(o));
+    } catch (e) {}
+  }
+  function loadCache() {
+    try {
+      var o = JSON.parse(localStorage.getItem(CACHE) || "null");
+      if (!o) return false;
+      rate = o.rate || 45; sheetUrl = o.sheetUrl || ""; pending = o.pending || []; pendingRate = o.pendingRate || null;
+      docs = new Map();
+      (o.days || []).forEach(function (d) { docs.set("d_" + d.date, d); });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function toast(msg) {
+    var t = $("#toast");
+    t.innerHTML = '<div class="toast">' + msg + "</div>";
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.innerHTML = ""; }, 3500);
+  }
+
+  /* ---------- server ---------- */
+  function api(body) {
+    return fetch(apiUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || "server"); return j; });
+  }
+  function applyServer(j) {
+    var m = new Map();
+    (j.shifts || []).forEach(function (r) {
+      var id = "d_" + r.date;
+      if (!m.has(id)) m.set(id, { date: r.date, shifts: [], paid: true });
+      var d = m.get(id);
+      d.shifts.push({ in: r.in, out: r.out == null ? null : r.out });
+      if (!r.paid) d.paid = false;
+    });
+    docs = m; rate = j.rate || rate; sheetUrl = j.url || sheetUrl;
+    saveCache();
+  }
+  async function flush() {
+    if (syncing || !apiUrl) return;
+    syncing = true;
+    try {
+      while (pending.length || pendingRate != null) {
+        if (pending.length) {
+          var batch = pending.slice();
+          var j = await api({ action: "saveDays", days: batch });
+          pending.splice(0, batch.length);
+          if (!pending.length && pendingRate == null) applyServer(j);
+          saveCache();
+        }
+        if (pendingRate != null) {
+          var rv = pendingRate;
+          var j2 = await api({ action: "setRate", rate: rv });
+          if (pendingRate === rv) pendingRate = null;
+          if (!pending.length && pendingRate == null) applyServer(j2);
+          saveCache();
+        }
+      }
+      online = true;
+    } catch (e) { online = false; }
+    finally { syncing = false; lastSync = Date.now(); render(); }
+  }
+  async function refresh() {
+    if (!apiUrl || syncing) return;
+    if (pending.length || pendingRate != null) { flush(); return; }
+    syncing = true;
+    try {
+      var j = await api({ action: "list" });
+      if (!pending.length && pendingRate == null) applyServer(j);
+      online = true; ready = true;
+    } catch (e) { online = false; }
+    finally { syncing = false; lastSync = Date.now(); if (!$("#modal").innerHTML) render(); }
+  }
+  function queueDays(arr) {
+    arr.forEach(function (p) {
+      var id = "d_" + p.date;
+      if (p.shifts.length) docs.set(id, { date: p.date, shifts: p.shifts, paid: !!p.paid }); else docs.delete(id);
+      pending = pending.filter(function (x) { return x.date !== p.date; });
+      pending.push({ date: p.date, heb: heb(p.date), shifts: p.shifts, paid: !!p.paid });
+    });
+    saveCache(); render(); flush();
+  }
+  function writeDay(date, shifts, paid) { queueDays([{ date: date, shifts: shifts, paid: paid }]); }
+
+  /* ---------- calculations ---------- */
+  function shiftMin(s) { return s.out ? Math.max(0, Math.round((s.out - s.in) / 60000)) : 0; }
+  function shiftPay(s) { return r2(shiftMin(s) * rate / 60); }
+  function allDays() {
+    var arr = [];
+    docs.forEach(function (d, id) {
+      var min = 0, pay = 0, open = false;
+      (d.shifts || []).forEach(function (s) { if (s.out == null) open = true; else { min += shiftMin(s); pay += shiftPay(s); } });
+      arr.push({ id: id, key: d.date, shifts: d.shifts || [], paid: !!d.paid, min: min, pay: r2(pay), open: open });
+    });
+    arr.sort(function (a, b) { return a.key < b.key ? -1 : 1; });
+    return arr;
+  }
+  function monthPrefix(y, m) { return y + "-" + pad(m); }
+  function stats(list) {
+    var min = 0, total = 0, paid = 0;
+    list.forEach(function (d) { min += d.min; total += d.pay; if (d.paid) paid += d.pay; });
+    return { min: min, total: r2(total), paid: r2(paid), rem: r2(total - paid) };
+  }
+  function findOpen() {
+    var found = null;
+    docs.forEach(function (d, id) {
+      (d.shifts || []).forEach(function (s, i) { if (s.out == null) found = { id: id, idx: i, shift: s }; });
+    });
+    return found;
+  }
+
+  /* ---------- rendering ---------- */
+  function render() {
+    var root = $("#app");
+    if (!apiUrl) { root.innerHTML = setupHTML(); return; }
+    if (!ready && !docs.size && !loadedFromCache) { root.innerHTML = '<div class="empty">טוען…</div>'; return; }
+    root.innerHTML = headerHTML() + (view === "month" ? monthHTML() : summaryHTML());
+  }
+  var loadedFromCache = false;
+
+  function setupHTML() {
+    return '<div class="top"><h1>נוכחות ושכר</h1></div><div class="card setup"><h2 style="margin-top:0">חיבור לטבלה</h2>' +
+      '<p>הדבק כאן את הכתובת הארוכה שקיבלת בסוף ההתקנה, ולחץ על התחבר.</p>' +
+      '<textarea id="url-in" placeholder="https://script.google.com/macros/s/..."></textarea><div class="err" id="s-err"></div>' +
+      '<button class="btn pri" style="width:100%;margin-top:8px;padding:14px;font-size:17px" data-act="connect">התחבר</button></div>';
+  }
+
+  function syncText() {
+    if (!online) return "אין חיבור כרגע. מה שתסמן יישמר וישלח כשיחזור";
+    if (pending.length || pendingRate != null || syncing) return "שומר…";
+    return "הכול שמור ✓";
+  }
+  function headerHTML() {
+    return '<div class="top"><h1>נוכחות ושכר</h1><button class="icon-btn" data-act="settings">⚙ שכר לשעה: ' + rate + '</button></div>' +
+      '<div class="sync">' + syncText() + "</div>" +
+      '<div class="tabs"><button class="tab ' + (view === "month" ? "on" : "") + '" data-act="tab-month">החודש</button>' +
+      '<button class="tab ' + (view === "summary" ? "on" : "") + '" data-act="tab-summary">סיכום כללי</button></div>';
+  }
+
+  function clockHTML() {
+    var now = new Date();
+    var o = findOpen();
+    var state = '<span style="color:var(--muted)">לא בעבודה</span>';
+    if (o) {
+      var el = Math.max(0, Math.round((Date.now() - o.shift.in) / 60000));
+      state = '<span style="color:var(--green)">בעבודה מאז ' + hm(o.shift.in) + " · עד עכשיו " + dur(el) + "</span>";
+    }
+    return '<div class="card"><div class="status"><div class="now">' + hm(now.getTime()) + '</div><div class="sub">יום ' + DAYS[now.getDay()] + " · " + fmtDate(keyOf(now)) + '</div><div class="sub">' + heb(keyOf(now)) + '</div><div class="state">' + state + "</div></div>" +
+      '<div class="big"><button class="in" data-act="in" ' + (o ? "disabled" : "") + '>כניסה</button><button class="out" data-act="out" ' + (o ? "" : "disabled") + ">יציאה</button></div></div>";
+  }
+
+  var EXPORT_BTN = '<button class="btn pri" style="width:100%;margin-bottom:12px;padding:14px;font-size:17px" data-act="export">הורד לאקסל (פירוט ימים ושעות)</button>';
+
+  function monthHTML() {
+    var pre = monthPrefix(curY, curM);
+    var list = allDays().filter(function (d) { return d.key.indexOf(pre) === 0; });
+    var st = stats(list);
+    var h = clockHTML() + EXPORT_BTN;
+    h += '<div class="monthnav"><button data-act="prev">חודש קודם</button><div class="nm">' + MONTHS[curM - 1] + " " + curY + '</div><button data-act="next">חודש הבא</button></div>';
+    h += '<div class="card"><div class="stats">' +
+      '<div class="stat"><div class="l">סה״כ זמן</div><div class="v">' + dur(st.min) + "</div></div>" +
+      '<div class="stat"><div class="l">סה״כ לתשלום</div><div class="v">' + money(st.total) + "</div></div>" +
+      '<div class="stat paid"><div class="l">כבר שולם</div><div class="v">' + money(st.paid) + "</div></div>" +
+      '<div class="stat rem"><div class="l">נשאר לתשלום</div><div class="v">' + money(st.rem) + "</div></div></div></div>";
+    if (!list.length) h += '<div class="empty">אין עדיין ימים בחודש הזה</div>';
+    list.slice().reverse().forEach(function (d) {
+      var times = d.shifts.map(function (s) { return hm(s.in) + "–" + (s.out ? hm(s.out) : "…"); }).join("  ·  ");
+      h += '<div class="day ' + (d.paid ? "paidday" : "") + '"><div class="row"><div><div class="d1">יום ' + dayName(d.key) + " · " + fmtDate(d.key) + '</div><div class="d2">' + heb(d.key) + '</div><div class="d2">' + times + (d.open ? " · בעבודה" : " · " + dur(d.min)) + '</div></div><div class="pay">' + money(d.pay) + "</div></div>" +
+        '<div class="acts"><button class="btn ' + (d.paid ? "" : "ok") + '" data-act="' + (d.paid ? "unpaid" : "paid") + '" data-id="' + d.id + '">' + (d.paid ? "בטל שולם" : "סמן שולם") + '</button><button class="btn" data-act="edit" data-id="' + d.id + '">עריכה</button></div></div>';
+    });
+    h += '<div class="tools">' +
+      (st.rem > 0 ? '<button class="btn pri" data-act="allpaid">סמן את כל החודש כשולם</button>' : "") +
+      '<button class="btn" data-act="add">הוסף יום ידנית</button>' +
+      (sheetUrl ? '<a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="' + sheetUrl + '" target="_blank" rel="noopener">פתח את הטבלה בגוגל שיטס</a>' : "") +
+      (list.length ? '<button class="btn warn" data-act="delmonth">מחק את כל החודש</button>' : "") + "</div>";
+    return h;
+  }
+
+  function summaryHTML() {
+    var days = allDays();
+    var byM = new Map();
+    days.forEach(function (d) { var k = d.key.slice(0, 7); if (!byM.has(k)) byM.set(k, []); byM.get(k).push(d); });
+    var keys = Array.from(byM.keys()).sort();
+    var h = EXPORT_BTN + '<div class="card">';
+    if (!keys.length) h += '<div class="empty">אין עדיין נתונים</div>';
+    else {
+      h += "<table><tr><th>חודש</th><th>זמן</th><th>לתשלום</th><th>שולם</th><th>נשאר</th></tr>";
+      keys.forEach(function (k) {
+        var y = Number(k.slice(0, 4)), m = Number(k.slice(5, 7));
+        var s = stats(byM.get(k));
+        h += '<tr class="clickable" data-act="go" data-y="' + y + '" data-m="' + m + '"><td>' + MONTHS[m - 1] + " " + y + "</td><td>" + dur(s.min) + "</td><td>" + money(s.total) + "</td><td>" + money(s.paid) + "</td><td>" + money(s.rem) + "</td></tr>";
+      });
+      var t = stats(days);
+      h += '<tr class="total"><td>סה״כ</td><td>' + dur(t.min) + "</td><td>" + money(t.total) + "</td><td>" + money(t.paid) + "</td><td>" + money(t.rem) + "</td></tr></table>";
+    }
+    h += '</div><div class="note">לחיצה על שם חודש פותחת את הפירוט של החודש</div>';
+    return h;
+  }
+
+  /* ---------- actions ---------- */
+  function clockIn() {
+    var now = minuteNow(), key = keyOf(new Date(now)), ex = docs.get("d_" + key);
+    writeDay(key, ((ex && ex.shifts) || []).concat([{ in: now, out: null }]), false);
+  }
+  function clockOut() {
+    var o = findOpen();
+    if (!o) return;
+    var d = docs.get(o.id), t = minuteNow();
+    var shifts = d.shifts.map(function (s, i) { return i === o.idx ? { in: s.in, out: Math.max(t, s.in) } : s; });
+    writeDay(d.date, shifts, !!d.paid);
+  }
+  function setPaid(id, val) {
+    var d = docs.get(id);
+    if (d) writeDay(d.date, d.shifts, val);
+  }
+  function allPaid() {
+    var pre = monthPrefix(curY, curM);
+    var list = allDays().filter(function (d) { return d.key.indexOf(pre) === 0 && !d.paid && !d.open; });
+    if (list.length) queueDays(list.map(function (d) { return { date: d.key, shifts: d.shifts, paid: true }; }));
+  }
+
+  /* ---------- modals ---------- */
+  function showModal(html) { $("#modal").innerHTML = '<div class="modalbg" data-act="bg"><div class="modal">' + html + "</div></div>"; }
+  function closeModal() { $("#modal").innerHTML = ""; editCtx = null; pendingConfirm = null; render(); }
+
+  function settingsModal() {
+    showModal('<h2>הגדרות</h2><label>שכר לשעה (בשקלים)</label><input id="rate-in" type="number" inputmode="decimal" step="0.5" value="' + rate + '"><div class="err" id="m-err"></div>' +
+      '<div class="row" style="gap:8px;margin-top:10px"><button class="btn pri" data-act="save-rate">שמור</button><button class="btn" data-act="close">ביטול</button></div>' +
+      '<button class="btn warn" style="width:100%;margin-top:14px" data-act="disconnect">נתק את החיבור לטבלה</button>');
+  }
+  function saveRate() {
+    var v = Number($("#rate-in").value);
+    if (!(v > 0)) { $("#m-err").textContent = "צריך מספר גדול מאפס"; return; }
+    rate = v; pendingRate = v; saveCache(); closeModal(); flush();
+  }
+
+  function openEdit(id) {
+    var d = id ? docs.get(id) : null;
+    editCtx = { id: id, isNew: !id, key: d ? d.date : keyOf(new Date()), shifts: d ? d.shifts.map(function (s) { return { in: s.in, out: s.out }; }) : [{ in: null, out: null }] };
+    renderEdit();
+  }
+  function renderEdit(msg) {
+    var c = editCtx;
+    var h = "<h2>" + (c.isNew ? "הוספת יום" : "עריכת יום " + dayName(c.key) + " " + fmtDate(c.key)) + "</h2>" + (c.isNew ? "" : '<div class="note" style="margin:-6px 0 8px">' + heb(c.key) + "</div>");
+    if (c.isNew) h += '<label>תאריך</label><input id="ed-date" type="date" value="' + c.key + '">';
+    c.shifts.forEach(function (s, i) {
+      h += '<div class="shiftbox"><div class="two"><div><label>כניסה</label><input type="time" data-i="' + i + '" data-f="in" value="' + (s.in ? hm(s.in) : "") + '"></div>' +
+        '<div><label>יציאה</label><input type="time" data-i="' + i + '" data-f="out" value="' + (s.out ? hm(s.out) : "") + '"></div></div>' +
+        (s.in && !s.out ? '<div class="note">עדיין בעבודה. השאר יציאה ריקה</div>' : "") +
+        (c.isNew ? "" : '<button class="btn warn" style="width:100%;margin-top:8px" data-act="delshift" data-i="' + i + '">מחק את השעה הזו</button>') + "</div>";
+    });
+    h += '<button class="btn" style="width:100%" data-act="addshift">+ עוד כניסה ויציאה באותו יום</button><div class="err" id="m-err">' + (msg || "") + "</div>";
+    h += '<div class="row" style="gap:8px;margin-top:10px"><button class="btn pri" data-act="save-edit">שמור</button><button class="btn" data-act="close">ביטול</button></div>';
+    if (!c.isNew) h += '<button class="btn warn" style="width:100%;margin-top:10px" data-act="delday">מחק את כל היום</button>';
+    showModal(h);
+  }
+  function readEdit() {
+    var c = editCtx, dEl = $("#ed-date");
+    if (dEl && dEl.value) c.key = dEl.value;
+    document.querySelectorAll("#modal input[data-i]").forEach(function (el) {
+      var i = Number(el.dataset.i), f = el.dataset.f, s = c.shifts[i], orig = s[f];
+      if (!el.value) s[f] = null;
+      else if (orig && hm(orig) === el.value) s[f] = Math.round(orig / 60000) * 60000;
+      else s[f] = toTs(c.key, el.value);
+    });
+    c.shifts.forEach(function (s) { if (s.in && s.out && s.out <= s.in) s.out += 86400000; });
+  }
+  function saveEdit() {
+    readEdit();
+    var c = editCtx, rows = c.shifts.filter(function (s) { return s.in; });
+    if (!rows.length) { renderEdit("צריך לפחות שעת כניסה אחת"); return; }
+    var myId = "d_" + c.key;
+    if (rows.filter(function (s) { return !s.out; }).length > 1) { renderEdit("רק משמרת אחת יכולה להיות פתוחה"); return; }
+    var o = findOpen();
+    if (rows.some(function (s) { return !s.out; }) && o && o.id !== (c.id || myId)) { renderEdit("יש כבר כניסה פתוחה ביום אחר"); return; }
+    var ex = docs.get(myId), paid = false;
+    if (c.isNew) { if (ex) rows = ex.shifts.concat(rows); }
+    else paid = !!(docs.get(c.id) || {}).paid;
+    rows.sort(function (a, b) { return a.in - b.in; });
+    var batch = [];
+    if (!c.isNew && c.id !== myId) batch.push({ date: docs.get(c.id).date, shifts: [], paid: false });
+    batch.push({ date: c.key, shifts: rows, paid: paid });
+    closeModal(); queueDays(batch);
+  }
+
+  function confirmModal(text, yesLabel, fn) {
+    pendingConfirm = fn;
+    showModal('<h2>אישור מחיקה</h2><div style="font-size:17px;line-height:1.5;margin-bottom:14px">' + text + '</div><div class="row" style="gap:8px"><button class="btn warn" data-act="confirm-yes">' + yesLabel + '</button><button class="btn pri" data-act="close">ביטול, לא למחוק</button></div>');
+  }
+  function askDelDay() {
+    var id = editCtx.id, d = docs.get(id);
+    if (!d) return;
+    confirmModal("למחוק את כל יום " + dayName(d.date) + " " + fmtDate(d.date) + " (" + d.shifts.length + " כניסות)? אי אפשר לשחזר.", "כן, מחק את היום", function () { writeDay(d.date, [], false); });
+  }
+  function askDelShift(i) {
+    readEdit();
+    var c = editCtx, st = docs.get(c.id);
+    if (!st) return;
+    if (i >= st.shifts.length) { c.shifts.splice(i, 1); if (!c.shifts.length) c.shifts.push({ in: null, out: null }); renderEdit(); return; }
+    var sh = st.shifts[i], id = c.id;
+    confirmModal("למחוק את השעה " + hm(sh.in) + (sh.out ? "–" + hm(sh.out) : " (עדיין בעבודה)") + " ביום " + dayName(st.date) + " " + fmtDate(st.date) + "? אי אפשר לשחזר.", "כן, מחק את השעה", function () {
+      var cur = docs.get(id);
+      if (!cur) return;
+      writeDay(cur.date, cur.shifts.filter(function (_, k) { return k !== i; }), !!cur.paid);
+    });
+  }
+  function askDelMonth() {
+    var pre = monthPrefix(curY, curM);
+    var list = allDays().filter(function (d) { return d.key.indexOf(pre) === 0; });
+    if (!list.length) { toast("אין מה למחוק בחודש הזה"); return; }
+    var st = stats(list);
+    confirmModal("למחוק את כל חודש " + MONTHS[curM - 1] + " " + curY + "? " + list.length + " ימים, סה״כ " + money(st.total) + ". אי אפשר לשחזר.", "כן, מחק את כל החודש", function () {
+      queueDays(list.map(function (d) { return { date: d.key, shifts: [], paid: false }; }));
+    });
+  }
+
+  function connect() {
+    var v = ($("#url-in").value || "").trim();
+    var err = $("#s-err");
+    if (v.indexOf("https://script.google.com/") !== 0) { err.textContent = "הכתובת צריכה להתחיל ב-https://script.google.com/"; return; }
+    err.textContent = "מתחבר…";
+    apiUrl = v;
+    api({ action: "list" }).then(function (j) {
+      try { localStorage.setItem(URLKEY, v); } catch (e) {}
+      applyServer(j); ready = true; online = true; loadedFromCache = true; render();
+    }).catch(function () { apiUrl = ""; err.textContent = "לא הצלחתי להתחבר. בדוק שהעתקת את כל הכתובת, ושההתקנה בגוגל הסתיימה."; });
+  }
+
+  /* ---------- export ---------- */
+  var xlsxLoading = null;
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(true);
+    if (xlsxLoading) return xlsxLoading;
+    xlsxLoading = new Promise(function (res) {
+      var s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
+      s.onload = function () { res(true); }; s.onerror = function () { res(false); };
+      document.head.appendChild(s);
+    });
+    return xlsxLoading;
+  }
+  function buildWorkbook() {
+    var X = window.XLSX;
+    var line = { style: "thin", color: { rgb: "BBBBBB" } };
+    var bd = { top: line, bottom: line, left: line, right: line };
+    var hdr = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "1F4E78" } }, alignment: { horizontal: "center" }, border: bd };
+    var body = function (paid) { return { alignment: { horizontal: "center" }, border: bd, fill: paid ? { fgColor: { rgb: "C6EFCE" } } : undefined }; };
+    var tot = { font: { bold: true }, alignment: { horizontal: "center" }, border: bd, fill: { fgColor: { rgb: "DDEBF7" } } };
+    var c = function (v, s, z, f) { var o = { v: v, t: typeof v === "number" ? "n" : "s", s: s }; if (z) o.z = z; if (f) o.f = f; return o; };
+    var MONEY = '#,##0.00 "₪"', DURF = "[h]:mm";
+    var days = allDays(), byM = new Map();
+    days.forEach(function (d) { var k = d.key.slice(0, 7); if (!byM.has(k)) byM.set(k, []); byM.get(k).push(d); });
+    var keys = Array.from(byM.keys()).sort();
+    var wb = X.utils.book_new();
+    var sum = [[c("חודש", hdr), c("סה״כ זמן", hdr), c("סה״כ לתשלום", hdr), c("שולם", hdr), c("נשאר לתשלום", hdr)]];
+    keys.forEach(function (k) {
+      var m = Number(k.slice(5, 7)), s = stats(byM.get(k));
+      sum.push([c(MONTHS[m - 1] + " " + k.slice(0, 4), body()), c(s.min / 1440, body(), DURF), c(s.total, body(), MONEY), c(s.paid, body(), MONEY), c(s.rem, body(), MONEY)]);
+    });
+    var n = keys.length, t = stats(days);
+    if (n) sum.push([c("סה״כ", tot), c(t.min / 1440, tot, DURF, "SUM(B2:B" + (n + 1) + ")"), c(t.total, tot, MONEY, "SUM(C2:C" + (n + 1) + ")"), c(t.paid, tot, MONEY, "SUM(D2:D" + (n + 1) + ")"), c(t.rem, tot, MONEY, "SUM(E2:E" + (n + 1) + ")")]);
+    var wsS = X.utils.aoa_to_sheet(sum);
+    wsS["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 16 }];
+    X.utils.book_append_sheet(wb, wsS, "סיכום כללי");
+    keys.forEach(function (k) {
+      var m = Number(k.slice(5, 7));
+      var rows = [[c("תאריך", hdr), c("תאריך עברי", hdr), c("יום", hdr), c("כניסה", hdr), c("יציאה", hdr), c("זמן עבודה", hdr), c("שכר", hdr), c("שולם?", hdr)]];
+      byM.get(k).forEach(function (d) {
+        d.shifts.forEach(function (s) {
+          var mins = shiftMin(s), b = body(d.paid);
+          rows.push([c(fmtDate(d.key), b), c(heb(d.key), b), c(dayName(d.key), b), c(hm(s.in), b), c(s.out ? hm(s.out) : "", b), c(s.out ? mins / 1440 : "", b, DURF), c(s.out ? shiftPay(s) : "", b, MONEY), c(d.paid ? "שולם" : "", b)]);
+        });
+      });
+      var r = rows.length - 1, st = stats(byM.get(k));
+      rows.push([]);
+      rows.push([c("סה״כ זמן", tot), c(st.min / 1440, tot, DURF, "SUM(F2:F" + (r + 1) + ")")]);
+      rows.push([c("סה״כ לתשלום", tot), c(st.total, tot, MONEY, "SUM(G2:G" + (r + 1) + ")")]);
+      rows.push([c("כבר שולם", tot), c(st.paid, tot, MONEY, 'SUMIF(H2:H' + (r + 1) + ',"שולם",G2:G' + (r + 1) + ")")]);
+      rows.push([c("נשאר לתשלום", tot), c(st.rem, tot, MONEY, "B" + (r + 4) + "-B" + (r + 5))]);
+      var ws = X.utils.aoa_to_sheet(rows);
+      ws["!cols"] = [{ wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 10 }];
+      X.utils.book_append_sheet(wb, ws, MONTHS[m - 1] + " " + k.slice(0, 4));
+    });
+    return wb;
+  }
+  function buildCsv() {
+    var rows = [["תאריך", "תאריך עברי", "יום", "כניסה", "יציאה", "זמן עבודה", "שכר", "שולם?"]];
+    allDays().forEach(function (d) { d.shifts.forEach(function (s) { rows.push([fmtDate(d.key), heb(d.key), dayName(d.key), hm(s.in), s.out ? hm(s.out) : "", s.out ? dur(shiftMin(s)) : "", s.out ? shiftPay(s) : "", d.paid ? "שולם" : ""]); }); });
+    return "﻿" + rows.map(function (r) { return r.join(","); }).join("\r\n");
+  }
+  async function saveFile(name, data, mime) {
+    var blob = new Blob([data], { type: mime });
+    try {
+      var f = new File([blob], name, { type: mime });
+      if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: name }); return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  }
+  async function exportXlsx() {
+    if (!docs.size) { toast("אין עדיין נתונים להורדה"); return; }
+    toast("מכין את הקובץ…");
+    var ok = await loadXlsx();
+    try {
+      if (ok) {
+        var out = window.XLSX.write(buildWorkbook(), { bookType: "xlsx", type: "array" });
+        await saveFile("attendance-" + keyOf(new Date()) + ".xlsx", out, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      } else {
+        await saveFile("attendance-" + keyOf(new Date()) + ".csv", buildCsv(), "text/csv;charset=utf-8");
+      }
+    } catch (e) { toast("ההורדה לא הצליחה"); }
+  }
+
+  /* ---------- events ---------- */
+  function guarded(fn) {
+    if (busy) return; busy = true;
+    try { fn(); } catch (e) { toast("משהו השתבש, נסה שוב"); } finally { busy = false; }
+  }
+  document.addEventListener("click", function (ev) {
+    var el = ev.target.closest("[data-act]");
+    if (!el) return;
+    var act = el.dataset.act, id = el.dataset.id;
+    if (act === "bg") { if (ev.target === el) closeModal(); return; }
+    switch (act) {
+      case "connect": connect(); break;
+      case "tab-month": view = "month"; render(); break;
+      case "tab-summary": view = "summary"; render(); break;
+      case "prev": curM--; if (curM < 1) { curM = 12; curY--; } render(); break;
+      case "next": curM++; if (curM > 12) { curM = 1; curY++; } render(); break;
+      case "go": curY = Number(el.dataset.y); curM = Number(el.dataset.m); view = "month"; render(); break;
+      case "in": guarded(clockIn); break;
+      case "out": guarded(clockOut); break;
+      case "paid": guarded(function () { setPaid(id, true); }); break;
+      case "unpaid": guarded(function () { setPaid(id, false); }); break;
+      case "allpaid": guarded(allPaid); break;
+      case "edit": openEdit(id); break;
+      case "add": openEdit(null); break;
+      case "settings": settingsModal(); break;
+      case "save-rate": saveRate(); break;
+      case "disconnect":
+        confirmModal("לנתק את החיבור לטבלה? הנתונים נשארים בטבלה בגוגל. תצטרך להדביק שוב את הכתובת.", "כן, נתק", function () {
+          try { localStorage.removeItem(URLKEY); localStorage.removeItem(CACHE); } catch (e) {}
+          apiUrl = ""; docs = new Map(); pending = []; pendingRate = null; ready = false;
+        });
+        break;
+      case "close": closeModal(); break;
+      case "addshift": readEdit(); editCtx.shifts.push({ in: null, out: null }); renderEdit(); break;
+      case "save-edit": saveEdit(); break;
+      case "delday": askDelDay(); break;
+      case "delshift": askDelShift(Number(el.dataset.i)); break;
+      case "delmonth": askDelMonth(); break;
+      case "confirm-yes": var f = pendingConfirm; pendingConfirm = null; if (f) f(); closeModal(); break;
+      case "export": exportXlsx(); break;
+    }
+  });
+
+  /* ---------- start ---------- */
+  loadedFromCache = loadCache();
+  if (apiUrl && loadedFromCache) ready = true;
+  render();
+  if (apiUrl) refresh();
+  setInterval(function () { if (apiUrl && !document.hidden) { if (!$("#modal").innerHTML) render(); if (Date.now() - lastSync > 20000) refresh(); } }, 10000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && apiUrl) refresh(); });
+  window.addEventListener("online", function () { if (apiUrl) refresh(); });
+  window.addEventListener("offline", function () { online = false; render(); });
+  if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); }); }
+})();
+</script>
+</body>
+</html>
