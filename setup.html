@@ -153,7 +153,7 @@ function ensureTabs_(ss, months) {
     if (ss.getSheetByName(name)) return;
     var sh = ss.insertSheet(name, 1 + idx);
     sh.setRightToLeft(true);
-    sh.getRange(&#x27;A1&#x27;).setValue(name).setFontWeight(&#x27;bold&#x27;).setFontSize(14);
+    sh.getRange(&#x27;A1&#x27;).setNumberFormat(&#x27;@&#x27;).setValue(name).setFontWeight(&#x27;bold&#x27;).setFontSize(14);
     var labels = [[&#x27;סה״כ זמן&#x27;], [&#x27;סה״כ לתשלום&#x27;], [&#x27;כבר שולם&#x27;], [&#x27;נשאר לתשלום&#x27;]];
     sh.getRange(&#x27;A2:A5&#x27;).setValues(labels).setFontWeight(&#x27;bold&#x27;);
     sh.getRange(&#x27;B2&#x27;).setFormula(&#x27;=SUMIFS(&#x27; + ref_(&#x27;F&#x27;) + &#x27;,&#x27; + ref_(&#x27;I&#x27;) + &#x27;,&quot;&#x27; + m + &#x27;&quot;)&#x27;).setNumberFormat(&#x27;[h]:mm&#x27;);
@@ -189,6 +189,7 @@ function buildSummary_(ss, months) {
       &#x27;=C&#x27; + n + &#x27;-D&#x27; + n
     ];
   });
+  sh.getRange(2, 1, rows.length, 1).setNumberFormat(&#x27;@&#x27;);
   sh.getRange(2, 1, rows.length, 5).setValues(rows);
   var t = rows.length + 2;
   sh.getRange(t, 1, 1, 5).setValues([[&#x27;סה״כ&#x27;, &#x27;=SUM(B2:B&#x27; + (t - 1) + &#x27;)&#x27;, &#x27;=SUM(C2:C&#x27; + (t - 1) + &#x27;)&#x27;, &#x27;=SUM(D2:D&#x27; + (t - 1) + &#x27;)&#x27;, &#x27;=SUM(E2:E&#x27; + (t - 1) + &#x27;)&#x27;]]).setFontWeight(&#x27;bold&#x27;).setBackground(&#x27;#ddebf7&#x27;);

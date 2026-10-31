@@ -133,7 +133,7 @@ function ensureTabs_(ss, months) {
     if (ss.getSheetByName(name)) return;
     var sh = ss.insertSheet(name, 1 + idx);
     sh.setRightToLeft(true);
-    sh.getRange('A1').setValue(name).setFontWeight('bold').setFontSize(14);
+    sh.getRange('A1').setNumberFormat('@').setValue(name).setFontWeight('bold').setFontSize(14);
     var labels = [['סה״כ זמן'], ['סה״כ לתשלום'], ['כבר שולם'], ['נשאר לתשלום']];
     sh.getRange('A2:A5').setValues(labels).setFontWeight('bold');
     sh.getRange('B2').setFormula('=SUMIFS(' + ref_('F') + ',' + ref_('I') + ',"' + m + '")').setNumberFormat('[h]:mm');
@@ -169,6 +169,7 @@ function buildSummary_(ss, months) {
       '=C' + n + '-D' + n
     ];
   });
+  sh.getRange(2, 1, rows.length, 1).setNumberFormat('@');
   sh.getRange(2, 1, rows.length, 5).setValues(rows);
   var t = rows.length + 2;
   sh.getRange(t, 1, 1, 5).setValues([['סה״כ', '=SUM(B2:B' + (t - 1) + ')', '=SUM(C2:C' + (t - 1) + ')', '=SUM(D2:D' + (t - 1) + ')', '=SUM(E2:E' + (t - 1) + ')']]).setFontWeight('bold').setBackground('#ddebf7');
